@@ -1,0 +1,182 @@
+/* App.css is kept minimal as most styling is handled by Tailwind */
+
+/* App-specific variables */
+:root {
+  --primary-color: #16a34a; /* green-600 */
+  --primary-dark: #15803d; /* green-700 */
+  --primary-light: #22c55e; /* green-500 */
+  --secondary-color: #4f46e5; /* indigo-600 */
+  --text-main: #111827; /* gray-900 */
+  --text-light: #6b7280; /* gray-500 */
+  --bg-light: #f9fafb; /* gray-50 */
+  --border-color: #e5e7eb; /* gray-200 */
+}
+
+/* Component-specific styles that aren't easily handled by Tailwind classes */
+
+/* TurfCard hover effect */
+.turf-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.turf-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Booking calendar custom styles */
+.booking-calendar .react-datepicker__day--selected {
+  background-color: var(--primary-color);
+}
+
+.booking-calendar .react-datepicker__day--in-range {
+  background-color: var(--primary-light);
+  color: white;
+}
+
+/* Time slot selection styles */
+.time-slot {
+  transition: all 0.2s ease;
+}
+
+.time-slot:not(.disabled):hover {
+  background-color: var(--primary-light);
+  color: white;
+}
+
+.time-slot.selected {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.time-slot.disabled {
+  background-color: #f3f4f6; /* gray-100 */
+  color: #9ca3af; /* gray-400 */
+  cursor: not-allowed;
+}
+
+/* Admin component specific styles */
+.admin-stat-card {
+  transition: transform 0.3s ease;
+}
+
+.admin-stat-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Dropdown menu animation */
+.dropdown-menu {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.dropdown:hover .dropdown-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Booking form animations */
+.booking-form-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.booking-form-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.booking-form-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.booking-form-exit-active {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Success animation for booking confirmation */
+.success-checkmark {
+  animation: scale-in 0.5s ease-out;
+}
+
+@keyframes scale-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* User profile image styling */
+.user-avatar {
+  background-color: var(--primary-color);
+}
+
+.user-avatar::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: #10b981; /* green-500 */
+  border-radius: 50%;
+  bottom: 0;
+  right: 0;
+  border: 2px solid white;
+}
+
+/* Status badge styles */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-badge.pending {
+  background-color: #fef3c7; /* yellow-100 */
+  color: #92400e; /* yellow-800 */
+}
+
+.status-badge.confirmed {
+  background-color: #d1fae5; /* green-100 */
+  color: #065f46; /* green-800 */
+}
+
+.status-badge.cancelled {
+  background-color: #fee2e2; /* red-100 */
+  color: #991b1b; /* red-800 */
+}
+
+.status-badge.completed {
+  background-color: #dbeafe; /* blue-100 */
+  color: #1e40af; /* blue-800 */
+}
+
+/* Responsive image gallery in TurfDetails */
+.turf-image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .turf-image-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
