@@ -2,10 +2,6 @@
  <img src="https://readme-typing-svg.herokuapp.com/?lines=Turf+Booking+Platform;Connect+Players+and+Turf+Owners;Seamless+Payment+Solutions&center=true&size=30">
 </h1>
 
-<div align="center">
- <img src="https://media.giphy.com/media/3oKIPCohynIQYGPcVG/giphy.gif" width="200"/>
-</div>
-
 <h3 align="center">
  🏟️ Full-Stack Turf Booking System | 💳 Integrated Payments | 📱 Responsive Design
 </h3>
