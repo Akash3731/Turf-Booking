@@ -10,15 +10,12 @@ const {
   changeUserRole,
 } = require("../controllers/userController");
 
-const { protect, authorize } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
 // All routes are protected
 router.use(protect);
-
-// TEMPORARILY COMMENT OUT THE ROLE CHECK
-// router.use(authorize('admin'));
 
 router.get("/", getUsers);
 router.post("/", createUser);

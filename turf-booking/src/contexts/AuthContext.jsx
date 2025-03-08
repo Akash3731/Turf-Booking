@@ -24,8 +24,6 @@ export const AuthProvider = ({ children }) => {
   // Add detailed request/response logging
   authAxios.interceptors.request.use(
     (config) => {
-      console.log("REQUEST:", config.method.toUpperCase(), config.url);
-      console.log("REQUEST HEADERS:", config.headers);
       return config;
     },
     (error) => {
@@ -36,7 +34,6 @@ export const AuthProvider = ({ children }) => {
 
   authAxios.interceptors.response.use(
     (response) => {
-      console.log("RESPONSE STATUS:", response.status);
       return response;
     },
     (error) => {
@@ -52,10 +49,8 @@ export const AuthProvider = ({ children }) => {
   // Add token to requests if it exists
   useEffect(() => {
     if (token) {
-      console.log("Setting auth token header:", token.substring(0, 15) + "...");
       authAxios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     } else {
-      console.log("No token found, removing Authorization header");
       delete authAxios.defaults.headers.common["Authorization"];
     }
   }, [token]);
@@ -65,13 +60,11 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       if (token) {
         try {
-          console.log("Loading user profile...");
           const res = await authAxios.get("/api/auth/profile");
-          console.log("User profile loaded:", res.data);
+
           setUser(res.data.user);
           setIsAuthenticated(true);
         } catch (error) {
-          console.error("Error loading user:", error);
           localStorage.removeItem("token");
           setToken(null);
           setUser(null);
@@ -87,13 +80,11 @@ export const AuthProvider = ({ children }) => {
   // Login user
   const login = async (email, password) => {
     try {
-      console.log("Attempting login for:", email);
       const res = await axios.post(`${API_URL}/api/auth/login`, {
         email,
         password,
       });
 
-      console.log("Login successful, user data:", res.data);
       localStorage.setItem("token", res.data.token);
       setToken(res.data.token);
       setUser(res.data.user);
@@ -104,7 +95,6 @@ export const AuthProvider = ({ children }) => {
         data: res.data,
       };
     } catch (error) {
-      console.error("Login failed:", error.response?.data);
       return {
         success: false,
         message: error.response?.data?.message || "Login failed",
@@ -115,10 +105,8 @@ export const AuthProvider = ({ children }) => {
   // Register user
   const register = async (userData) => {
     try {
-      console.log("Attempting registration for:", userData.email);
       const res = await axios.post(`${API_URL}/api/auth/register`, userData);
 
-      console.log("Registration successful:", res.data);
       localStorage.setItem("token", res.data.token);
       setToken(res.data.token);
       setUser(res.data.user);
@@ -129,7 +117,6 @@ export const AuthProvider = ({ children }) => {
         data: res.data,
       };
     } catch (error) {
-      console.error("Registration failed:", error.response?.data);
       return {
         success: false,
         message: error.response?.data?.message || "Registration failed",
@@ -139,7 +126,6 @@ export const AuthProvider = ({ children }) => {
 
   // Logout user
   const logout = () => {
-    console.log("Logging out user");
     localStorage.removeItem("token");
     setToken(null);
     setUser(null);
