@@ -12,6 +12,9 @@ import AdminRoute from "./common/AdminRoute";
 // Public Pages
 import Home from "./components/Home";
 import Login from "./components/Login";
+import ContactPage from "./components/ContactPage";
+import CareersPage from "./pages/CareersPage";
+import CareerApplicationPage from "./pages/CareersApplicationPage";
 import Register from "./components/Register";
 import TurfList from "./components/users/TurfList";
 import TurfDetails from "./components/users/TurfDetails";
@@ -37,10 +40,16 @@ function App() {
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/turfs" element={<TurfList />} />
               <Route path="/turfs/:id" element={<TurfDetails />} />
+              <Route path="/careers" element={<CareersPage />} />
+              <Route
+                path="/careers/apply/:roleId"
+                element={<CareerApplicationPage />}
+              />
 
               {/* Protected User Routes */}
               <Route

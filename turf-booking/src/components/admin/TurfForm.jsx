@@ -13,7 +13,7 @@ const TurfForm = ({ turf, onSubmitSuccess }) => {
 
   // Bank details state
   const [bankDetails, setBankDetails] = useState({
-    razorpayMerchantId: turf?.razorpayMerchantId || "",
+    razorpayAccountId: turf?.razorpayAccountId || "",
   });
 
   // Sport types options
@@ -81,8 +81,17 @@ const TurfForm = ({ turf, onSubmitSuccess }) => {
 
     try {
       // Basic validation for bank details
-      if (!bankDetails.razorpayMerchantId) {
-        setSubmitError("Razorpay Bank Account ID is required");
+      if (!bankDetails.razorpayAccountId) {
+        setSubmitError("Razorpay Account ID is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Validate Account ID format
+      if (!bankDetails.razorpayAccountId.startsWith("acc_")) {
+        setSubmitError(
+          "Invalid Razorpay Account ID format. It should start with 'acc_'"
+        );
         setIsSubmitting(false);
         return;
       }
@@ -103,7 +112,7 @@ const TurfForm = ({ turf, onSubmitSuccess }) => {
       });
 
       // Add bank account ID to FormData
-      formData.append("razorpayMerchantId", bankDetails.razorpayMerchantId);
+      formData.append("razorpayAccountId", bankDetails.razorpayAccountId);
 
       // Add images to FormData
       if (images.length > 0) {
@@ -158,7 +167,7 @@ const TurfForm = ({ turf, onSubmitSuccess }) => {
           setImages([]);
           setImagePreview([]);
           setBankDetails({
-            razorpayMerchantId: "",
+            razorpayAccountId: "",
           });
         }
 
@@ -493,25 +502,26 @@ const TurfForm = ({ turf, onSubmitSuccess }) => {
             {/* Bank Details Section */}
             <div>
               <label
-                htmlFor="razorpayMerchantId"
+                htmlFor="razorpayAccountId"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Razorpay Merchant ID *
+                Razorpay Account ID *
               </label>
               <input
                 type="text"
-                id="razorpayMerchantId"
-                value={bankDetails.razorpayMerchantId}
+                id="razorpayAccountId"
+                value={bankDetails.razorpayAccountId}
                 onChange={(e) =>
                   setBankDetails({
-                    razorpayMerchantId: e.target.value,
+                    razorpayAccountId: e.target.value,
                   })
                 }
-                placeholder="Enter Razorpay Merchant ID"
+                placeholder="Enter Razorpay Account ID (e.g., acc_xxxxxxxxxx)"
                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
               />
               <p className="text-sm text-gray-500 mt-1">
-                The unique identifier for the turf owner's Razorpay account
+                The unique Linked Account ID for the turf owner's Razorpay
+                account. This is needed for direct payments to the turf owner.
               </p>
             </div>
 

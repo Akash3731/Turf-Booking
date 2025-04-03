@@ -33,10 +33,17 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    // Create Razorpay order
-    const options = {
+    console.log("Creating order for booking:", bookingId);
+    console.log("Turf details:", {
+      id: turf._id,
+      name: turf.name,
+      razorpayAccountId: turf.razorpayAccountId || "Not set",
+    });
+
+    // Prepare order options
+    const orderOptions = {
       amount: Math.round(amount * 100), // Convert to paise
-      currency,
+      currency: currency || "INR",
       receipt,
       notes: {
         ...notes,
@@ -44,7 +51,35 @@ exports.createOrder = async (req, res) => {
       },
     };
 
-    const order = await razorpay.orders.create(options);
+    // If turf has a Razorpay account ID, set up direct transfer
+    if (turf.razorpayAccountId) {
+      console.log(
+        "Setting up direct transfer to account:",
+        turf.razorpayAccountId
+      );
+
+      // Configure transfers for direct payment to turf owner
+      orderOptions.transfers = [
+        {
+          account: turf.razorpayAccountId,
+          amount: Math.round(amount * 100), // Send full amount to turf owner
+          currency: currency || "INR",
+          notes: {
+            booking_id: bookingId.toString(),
+            turf_name: turf.name,
+          },
+          on_hold: false,
+        },
+      ];
+    }
+
+    // Create Razorpay order with transfers if configured
+    const order = await razorpay.orders.create(orderOptions);
+    console.log("Order created:", order.id);
+
+    if (orderOptions.transfers) {
+      console.log("Order created with transfers configuration");
+    }
 
     res.status(200).json({
       success: true,
@@ -55,6 +90,7 @@ exports.createOrder = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error creating payment order",
+      error: error.message,
     });
   }
 };
@@ -70,6 +106,13 @@ exports.verifyPayment = async (req, res) => {
       razorpay_signature,
       bookingId,
     } = req.body;
+
+    console.log(
+      "Verifying payment:",
+      razorpay_payment_id,
+      "for booking:",
+      bookingId
+    );
 
     // Verify signature
     const crypto = require("crypto");
@@ -103,13 +146,28 @@ exports.verifyPayment = async (req, res) => {
 
     // Get payment details
     const payment = await razorpay.payments.fetch(razorpay_payment_id);
+    console.log("Payment details:", {
+      id: payment.id,
+      amount: payment.amount,
+      status: payment.status,
+      hasTransfers: !!payment.transfers,
+    });
 
-    // If the turf has a merchant ID, transfer the funds immediately
-    if (turf.razorpayMerchantId) {
+    // Check if payment already has transfers (from order creation)
+    if (payment.transfers) {
+      console.log("Payment already has transfers:", payment.transfers);
+    }
+    // If the turf has an account ID and payment doesn't have transfers yet, transfer the funds manually
+    else if (turf.razorpayAccountId) {
       try {
+        console.log(
+          "Executing manual transfer to account:",
+          turf.razorpayAccountId
+        );
+
         // Transfer to turf owner's account
-        await razorpay.transfers.create({
-          account: turf.razorpayMerchantId,
+        const transferResult = await razorpay.transfers.create({
+          account: turf.razorpayAccountId,
           amount: payment.amount,
           currency: payment.currency,
           notes: {
@@ -118,10 +176,11 @@ exports.verifyPayment = async (req, res) => {
             payment_id: razorpay_payment_id,
           },
         });
+
+        console.log("Manual transfer successful:", transferResult.id);
       } catch (transferError) {
-        console.error("Transfer to merchant failed:", transferError);
+        console.error("Transfer to account failed:", transferError);
         // Don't fail the booking, but log the error
-        // You might want to handle this situation differently
       }
     }
 
@@ -131,6 +190,7 @@ exports.verifyPayment = async (req, res) => {
     booking.paymentDetails = {
       paymentId: razorpay_payment_id,
       orderId: razorpay_order_id,
+      transferredDirectly: !!payment.transfers || !!turf.razorpayAccountId,
     };
     await booking.save();
 
@@ -144,6 +204,7 @@ exports.verifyPayment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error verifying payment",
+      error: error.message,
     });
   }
 };
@@ -164,6 +225,111 @@ exports.getPaymentDetails = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching payment details",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get all transfers for a payment
+// @route   GET /api/payments/:id/transfers
+// @access  Private
+exports.getPaymentTransfers = async (req, res) => {
+  try {
+    // Use the all method with payment_id filter
+    const transfers = await razorpay.transfers.all({
+      payment_id: req.params.id,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: transfers,
+    });
+  } catch (error) {
+    console.error("Error fetching transfers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching transfers",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Create a direct transfer (manual transfer)
+// @route   POST /api/payments/transfer
+// @access  Private (Admin)
+exports.createTransfer = async (req, res) => {
+  try {
+    const { account, amount, currency, notes } = req.body;
+
+    if (!account || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Account ID and amount are required",
+      });
+    }
+
+    const transferOptions = {
+      account,
+      amount: Math.round(amount * 100), // Convert to paise
+      currency: currency || "INR",
+      notes: notes || {},
+    };
+
+    const transfer = await razorpay.transfers.create(transferOptions);
+
+    res.status(201).json({
+      success: true,
+      message: "Transfer created successfully",
+      data: transfer,
+    });
+  } catch (error) {
+    console.error("Error creating transfer:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating transfer",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get transfer details
+// @route   GET /api/payments/transfers/:id
+// @access  Private
+exports.getTransferDetails = async (req, res) => {
+  try {
+    const transfer = await razorpay.transfers.fetch(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      data: transfer,
+    });
+  } catch (error) {
+    console.error("Error fetching transfer details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching transfer details",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get all transfers
+// @route   GET /api/payments/transfers
+// @access  Private (Admin)
+exports.getAllTransfers = async (req, res) => {
+  try {
+    const transfers = await razorpay.transfers.all();
+
+    res.status(200).json({
+      success: true,
+      data: transfers,
+    });
+  } catch (error) {
+    console.error("Error fetching all transfers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching all transfers",
+      error: error.message,
     });
   }
 };

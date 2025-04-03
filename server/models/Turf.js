@@ -72,9 +72,9 @@ const turfSchema = mongoose.Schema(
       type: Number,
       default: 0,
     },
-    razorpayMerchantId: {
+    razorpayAccountId: {
       type: String,
-      required: [true, "Please add Razorpay Merchant ID"],
+      required: [true, "Please add Razorpay Account ID"],
     },
   },
   {

@@ -2,7 +2,6 @@ import { useState, useEffect, useContext } from "react";
 import { Link } from "react-router-dom";
 import AuthContext from "../../contexts/AuthContext";
 import Loader from "../../common/Loader";
-import { API_URL } from "../../utils/constants";
 
 const ManageBookings = () => {
   const { authAxios } = useContext(AuthContext);

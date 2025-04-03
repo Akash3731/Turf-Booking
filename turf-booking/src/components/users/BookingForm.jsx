@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import AuthContext from "../../contexts/AuthContext";
@@ -7,6 +7,8 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
   const { authAxios, user } = useContext(AuthContext);
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentId, setPaymentId] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState(null);
 
   // Calculate duration and total price
   const calculateDuration = (startTime, endTime) => {
@@ -47,62 +49,20 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
     paymentMethod: "cash",
   };
 
-  // Handle form submission
-  // const handleSubmit = async (values) => {
-  //   if (user?.role === "admin") {
-  //     setSubmitError(
-  //       "Admin accounts cannot book turfs. Please use a regular user account."
-  //     );
-  //     return;
-  //   }
-
-  //   setIsSubmitting(true);
-  //   setSubmitError(null);
-
-  //   try {
-  //     const bookingData = {
-  //       turf: turf._id,
-  //       date: date.toISOString().split("T")[0],
-  //       startTime: timeSlot.startTime,
-  //       endTime: timeSlot.endTime,
-  //       duration,
-  //       pricing: {
-  //         pricePerHour: turf.price,
-  //         currency: "INR",
-  //         totalPrice: totalPrice,
-  //       },
-  //       ...values,
-  //     };
-
-  //     // Get token directly from localStorage to ensure it's current
-  //     const token = localStorage.getItem("token");
-
-  //     // Include the token in the request headers
-  //     const config = {
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //       },
-  //     };
-
-  //     const response = await authAxios.post(
-  //       "/api/bookings",
-  //       bookingData,
-  //       config
-  //     );
-
-  //     setIsSubmitting(false);
-
-  //     if (response.data.success) {
-  //       onSubmit(response.data.data);
-  //     }
-  //   } catch (error) {
-  //     setIsSubmitting(false);
-  //     setSubmitError(
-  //       error.response?.data?.message ||
-  //         "Failed to create booking. Please try again."
-  //     );
-  //   }
-  // };
+  // Check payment status if we have a payment ID
+  useEffect(() => {
+    if (paymentId) {
+      const checkPaymentStatus = async () => {
+        try {
+          const response = await authAxios.get(`/api/payments/${paymentId}`);
+          setPaymentStatus(response.data.data.status);
+        } catch (error) {
+          console.error("Error checking payment status:", error);
+        }
+      };
+      checkPaymentStatus();
+    }
+  }, [paymentId, authAxios]);
 
   const handleSubmit = async (values) => {
     if (user?.role === "admin") {
@@ -149,9 +109,17 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
         );
         const booking = bookingResponse.data.data;
 
-        console.log("Using merchant ID for payment:", turf.razorpayMerchantId);
+        // Log if direct payment is available
+        if (turf.razorpayAccountId) {
+          console.log(
+            "Direct payment enabled with Account ID:",
+            turf.razorpayAccountId
+          );
+        } else {
+          console.log("Direct payment not available for this turf");
+        }
 
-        // Then create Razorpay order
+        // Create Razorpay order with direct transfer configuration
         const orderResponse = await authAxios.post(
           "/api/payments/create-order",
           {
@@ -161,15 +129,27 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
             receipt: `booking_${booking._id}`,
             notes: {
               turfId: turf._id,
-              turfMerchantId: turf.razorpayMerchantId,
+              userName: user?.name || "Guest",
+              userEmail: user?.email || "",
+              userPhone: user?.phone || "",
+              bookingDate: date.toISOString().split("T")[0],
+              bookingTime: `${timeSlot.startTime} - ${timeSlot.endTime}`,
+              directTransfer: turf.razorpayAccountId ? "true" : "false",
             },
           },
           config
         );
 
-        const { order } = orderResponse.data;
+        if (!orderResponse.data.success) {
+          throw new Error(
+            orderResponse.data.message || "Failed to create order"
+          );
+        }
 
-        // Initialize Razorpay
+        const { order } = orderResponse.data;
+        console.log("Order created successfully:", order.id);
+
+        // Initialize Razorpay checkout
         const options = {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID,
           amount: order.amount,
@@ -178,6 +158,9 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
           description: `Booking for ${turf.name}`,
           order_id: order.id,
           handler: async function (response) {
+            console.log("Payment successful, verifying...");
+            setPaymentId(response.razorpay_payment_id);
+
             // Verify payment on the backend
             const verifyData = {
               razorpay_order_id: response.razorpay_order_id,
@@ -186,22 +169,43 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
               bookingId: booking._id,
             };
 
-            const verifyResponse = await authAxios.post(
-              "/api/payments/verify",
-              verifyData,
-              config
-            );
+            try {
+              const verifyResponse = await authAxios.post(
+                "/api/payments/verify",
+                verifyData,
+                config
+              );
 
-            if (verifyResponse.data.success) {
-              onSubmit(booking);
+              if (verifyResponse.data.success) {
+                console.log("Payment verified successfully");
+                onSubmit(booking);
+              } else {
+                setSubmitError(
+                  "Payment verification failed. Please contact support."
+                );
+              }
+            } catch (verifyError) {
+              console.error("Payment verification error:", verifyError);
+              setSubmitError(
+                "Error verifying payment. Please contact support."
+              );
             }
+
+            setIsSubmitting(false);
           },
           prefill: {
             name: user?.name || "",
             email: user?.email || "",
+            contact: user?.phone || "",
+          },
+          notes: {
+            booking_id: booking._id,
+            turf_id: turf._id,
+            turf_name: turf.name,
           },
           modal: {
             ondismiss: function () {
+              console.log("Payment modal dismissed");
               setIsSubmitting(false);
             },
           },
@@ -211,6 +215,14 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
         };
 
         const razorpay = new window.Razorpay(options);
+
+        // Open Razorpay checkout
+        razorpay.on("payment.failed", function (response) {
+          console.error("Payment failed:", response.error);
+          setSubmitError(`Payment failed: ${response.error.description}`);
+          setIsSubmitting(false);
+        });
+
         razorpay.open();
       } else {
         // For cash payments, just create the booking
@@ -224,12 +236,16 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
 
         if (response.data.success) {
           onSubmit(response.data.data);
+        } else {
+          setSubmitError(response.data.message || "Failed to create booking");
         }
       }
     } catch (error) {
+      console.error("Booking error:", error);
       setIsSubmitting(false);
       setSubmitError(
         error.response?.data?.message ||
+          error.message ||
           "Failed to create booking. Please try again."
       );
     }
@@ -242,6 +258,18 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
       {submitError && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
           {submitError}
+        </div>
+      )}
+
+      {paymentStatus && (
+        <div
+          className={`px-4 py-3 rounded relative mb-4 ${
+            paymentStatus === "captured"
+              ? "bg-green-100 border border-green-400 text-green-700"
+              : "bg-yellow-100 border border-yellow-400 text-yellow-700"
+          }`}
+        >
+          Payment status: {paymentStatus}
         </div>
       )}
 
@@ -277,6 +305,16 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
           <div className="font-semibold">₹{totalPrice.toFixed(2)}</div>
         </div>
       </div>
+
+      {/* Direct Transfer Notice */}
+      {turf.razorpayAccountId && (
+        <div className="bg-green-50 border-l-4 border-green-500 p-3 mb-4">
+          <p className="text-green-700 text-sm">
+            <strong>Direct Payment Enabled:</strong> Online payments will be
+            directly transferred to the turf owner's account.
+          </p>
+        </div>
+      )}
 
       {/* Booking Form */}
       <Formik
@@ -351,7 +389,14 @@ const BookingForm = ({ turf, date, timeSlot, onSubmit, onCancel }) => {
                     value="online"
                     className="h-4 w-4 text-green-600 focus:ring-green-500"
                   />
-                  <span className="ml-2 text-gray-700">Online Payment</span>
+                  <span className="ml-2 text-gray-700">
+                    Online Payment (Razorpay)
+                  </span>
+                  {turf.razorpayAccountId && (
+                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                      Direct Transfer
+                    </span>
+                  )}
                 </label>
               </div>
               <ErrorMessage
