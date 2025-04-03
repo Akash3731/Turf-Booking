@@ -28,6 +28,7 @@ import AdminDashboard from "./components/admin/AdminDashboard";
 import ManageTurfs from "./components/admin/ManageTurfs";
 import ManageUsers from "./components/admin/ManageUsers";
 import ManageBookings from "./components/admin/ManageBookings";
+import AdminApplications from "./components/admin/Applications";
 
 function App() {
   return (
@@ -94,6 +95,15 @@ function App() {
                   </AdminRoute>
                 }
               />
+              <Route
+                path="/admin/applications"
+                element={
+                  <AdminRoute>
+                    <AdminApplications />
+                  </AdminRoute>
+                }
+              />
+
               <Route
                 path="/admin/bookings"
                 element={

@@ -10,6 +10,7 @@ const AdminDashboard = () => {
     totalTurfs: 0,
     totalUsers: 0,
     totalBookings: 0,
+    totalApplications: 0,
     recentBookings: [],
   });
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,12 @@ const AdminDashboard = () => {
           config
         );
 
+        // Fetch applications count
+        const applicationsRes = await authAxios.get(
+          "/api/applications?limit=1",
+          config
+        );
+
         setStats({
           totalTurfs: turfsRes.data.pagination
             ? turfsRes.data.pagination.total
@@ -46,6 +53,9 @@ const AdminDashboard = () => {
             : 0,
           totalBookings: bookingsRes.data.pagination
             ? bookingsRes.data.pagination.total
+            : 0,
+          totalApplications: applicationsRes.data.pagination
+            ? applicationsRes.data.pagination.total
             : 0,
           recentBookings: bookingsRes.data.data || [],
         });
@@ -128,6 +138,17 @@ const AdminDashboard = () => {
           <p className="text-3xl font-bold">{stats.totalUsers}</p>
           <Link to="/admin/users" className="text-blue-500 mt-2 inline-block">
             Manage Users →
+          </Link>
+        </div>
+
+        <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-red-500">
+          <h2 className="text-gray-500 text-lg">Total Applications</h2>
+          <p className="text-3xl font-bold">{stats.totalApplications || 0}</p>
+          <Link
+            to="/admin/applications"
+            className="text-red-500 mt-2 inline-block"
+          >
+            Manage Applications →
           </Link>
         </div>
 

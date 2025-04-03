@@ -25,6 +25,7 @@ app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/turfs", require("./routes/turfRoutes"));
 app.use("/api/bookings", require("./routes/bookingRoutes"));
+app.use("/api/applications", require("./routes/applicationRoutes"));
 app.use("/api", require("./routes/paymentRoutes"));
 
 // Health check route

@@ -1,8 +1,15 @@
-import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import React, { useState, useEffect, useContext } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import AuthContext from "../contexts/AuthContext";
+import axios from "axios";
+import { API_URL } from "../utils/constants";
 
 const CareerApplicationPage = () => {
+  const { authAxios } = useContext(AuthContext);
+  const navigate = useNavigate();
   const { roleId } = useParams();
+  axios.defaults.baseURL = API_URL;
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -10,14 +17,38 @@ const CareerApplicationPage = () => {
     phone: "",
     experience: "",
     availability: "",
-    resume: null,
+    certification: null, // Changed from resume: null
     coverLetter: "",
     referralSource: "",
+    city: "",
+    turfId: "",
+    // Role-specific fields
+    specialization: "",
+    certifications: "",
+    managementExperience: "",
+    facilitiesManaged: "",
+    teamSize: "",
   });
 
+  // Form submission status
   const [formStatus, setFormStatus] = useState(null);
 
-  // Role specific information
+  // List of turfs for selected city
+  const [turfs, setTurfs] = useState([]);
+
+  // Predefined cities
+  const predefinedCities = [
+    "Mumbai",
+    "Delhi",
+    "Bangalore",
+    "Hyderabad",
+    "Chennai",
+    "Kolkata",
+    "Pune",
+    "Ahmedabad",
+  ];
+
+  // Role-specific information
   const roleInfo = {
     trainer: {
       title: "Sports Trainer Application",
@@ -46,35 +77,159 @@ const CareerApplicationPage = () => {
     },
   };
 
+  // Fetch turfs when city changes
+  useEffect(() => {
+    const fetchTurfs = async () => {
+      if (formData.city) {
+        try {
+          const token = localStorage.getItem("token");
+          const config = {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            params: { city: formData.city },
+          };
+
+          const response = await authAxios.get("/api/turfs", config);
+
+          const turfsData = response.data.data || [];
+          setTurfs(turfsData);
+
+          // Reset turfId if current selection is no longer valid
+          if (
+            formData.turfId &&
+            !turfsData.some((turf) => turf._id === formData.turfId)
+          ) {
+            setFormData((prev) => ({
+              ...prev,
+              turfId: "",
+            }));
+          }
+        } catch (error) {
+          console.error("Error fetching turfs:", error);
+          setTurfs([]);
+          setFormData((prev) => ({
+            ...prev,
+            turfId: "",
+          }));
+        }
+      } else {
+        setTurfs([]);
+        setFormData((prev) => ({
+          ...prev,
+          turfId: "",
+        }));
+      }
+    };
+
+    fetchTurfs();
+  }, [formData.city]);
+
+  // Handle input changes
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    const { name, value, files } = e.target;
+
+    // Handle file input separately
+    if (name === "certification") {
+      setFormData({
+        ...formData,
+        certification: files ? files[0] : null, // Changed from resume
+      });
+      return;
+    }
+
+    // Reset turfId if city changes
+    if (name === "city") {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+        turfId: "", // Reset turf selection when city changes
+      }));
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
-  const handleFileChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.files[0],
-    });
-  };
-
-  const handleSubmit = (e) => {
+  // Form submission handler
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validation logic would go here
+    // Validate required fields based on role
+    const requiredFields = [
+      "firstName",
+      "lastName",
+      "email",
+      "phone",
+      "city",
+      "turfId",
+      "availability",
+      "certification",
+    ];
 
-    // Form submission logic would go here
-    setFormStatus({
-      type: "success",
-      message:
-        "Your application has been submitted successfully! Our HR team will review your credentials and contact you soon.",
+    // Add role-specific required fields
+    if (roleId === "trainer") {
+      requiredFields.push("experience", "specialization", "certifications");
+    } else if (roleId === "manager") {
+      requiredFields.push(
+        "managementExperience",
+        "facilitiesManaged",
+        "teamSize"
+      );
+    }
+
+    // Check for missing fields
+    const missingFields = requiredFields.filter((field) => !formData[field]);
+    if (missingFields.length > 0) {
+      setFormStatus({
+        type: "error",
+        message: `Please fill in all required fields: ${missingFields.join(
+          ", "
+        )}`,
+      });
+      return;
+    }
+
+    // Prepare form data for submission
+    const submissionData = new FormData();
+
+    // Append all form fields
+    Object.keys(formData).forEach((key) => {
+      if (formData[key] !== null && formData[key] !== undefined) {
+        submissionData.append(key, formData[key]);
+      }
     });
 
-    // Reset form after successful submission (in a real application)
-    // setFormData({ ... });
+    // Add role to the submission
+    submissionData.append("role", roleId);
+
+    try {
+      // Submit application without authentication
+      const response = await axios.post("/api/applications", submissionData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      // Handle successful submission
+      setFormStatus({
+        type: "success",
+        message:
+          "Your application has been submitted successfully! Our team will review your credentials and contact you soon.",
+      });
+    } catch (error) {
+      // Handle submission errors
+      console.error("Application submission error:", error);
+
+      setFormStatus({
+        type: "error",
+        message:
+          error.response?.data?.message ||
+          "Failed to submit application. Please try again.",
+      });
+    }
   };
 
   // If role ID doesn't exist, show appropriate message
@@ -122,6 +277,7 @@ const CareerApplicationPage = () => {
               </ul>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Personal Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label
@@ -140,7 +296,6 @@ const CareerApplicationPage = () => {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
                     />
                   </div>
-
                   <div>
                     <label
                       htmlFor="lastName"
@@ -160,6 +315,7 @@ const CareerApplicationPage = () => {
                   </div>
                 </div>
 
+                {/* Contact Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label
@@ -178,7 +334,6 @@ const CareerApplicationPage = () => {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
                     />
                   </div>
-
                   <div>
                     <label
                       htmlFor="phone"
@@ -198,7 +353,62 @@ const CareerApplicationPage = () => {
                   </div>
                 </div>
 
-                {/* Role specific fields */}
+                {/* Location and Turf Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label
+                      htmlFor="city"
+                      className="block text-gray-700 font-medium mb-2"
+                    >
+                      City <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="city"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+                    >
+                      <option value="">Select City</option>
+                      {predefinedCities.map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="turfId"
+                      className="block text-gray-700 font-medium mb-2"
+                    >
+                      Select Club/Turf <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="turfId"
+                      name="turfId"
+                      value={formData.turfId}
+                      onChange={handleInputChange}
+                      required
+                      disabled={!formData.city}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors disabled:opacity-50"
+                    >
+                      <option value="">
+                        {formData.city
+                          ? "Select Turf/Club"
+                          : "Select City First"}
+                      </option>
+                      {turfs.map((turf) => (
+                        <option key={turf._id} value={turf._id}>
+                          {turf.name} - {turf.address}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Role-Specific Fields for Trainer */}
                 {roleId === "trainer" && (
                   <>
                     <div>
@@ -271,6 +481,7 @@ const CareerApplicationPage = () => {
                   </>
                 )}
 
+                {/* Role-Specific Fields for Manager */}
                 {roleId === "manager" && (
                   <>
                     <div>
@@ -339,7 +550,7 @@ const CareerApplicationPage = () => {
                   </>
                 )}
 
-                {/* Common fields for all roles */}
+                {/* Common Fields */}
                 <div>
                   <label
                     htmlFor="availability"
@@ -364,19 +575,20 @@ const CareerApplicationPage = () => {
                   </select>
                 </div>
 
+                {/* Resume Upload */}
                 <div>
                   <label
-                    htmlFor="resume"
+                    htmlFor="certification"
                     className="block text-gray-700 font-medium mb-2"
                   >
-                    Resume <span className="text-red-500">*</span>
+                    Certification <span className="text-red-500">*</span>
                   </label>
                   <div className="relative border border-dashed border-gray-300 rounded-lg p-6">
                     <input
                       type="file"
-                      id="resume"
-                      name="resume"
-                      onChange={handleFileChange}
+                      id="certification"
+                      name="certification"
+                      onChange={handleInputChange}
                       required
                       accept=".pdf,.doc,.docx"
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -396,9 +608,9 @@ const CareerApplicationPage = () => {
                         />
                       </svg>
                       <p className="mt-1 text-sm text-gray-600">
-                        {formData.resume
-                          ? formData.resume.name
-                          : "Drag and drop your resume, or click to select"}
+                        {formData.certification
+                          ? formData.certification.name
+                          : "Drag and drop your certification, or click to select"}{" "}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
                         PDF, DOC, or DOCX up to 5MB
@@ -407,6 +619,7 @@ const CareerApplicationPage = () => {
                   </div>
                 </div>
 
+                {/* Cover Letter */}
                 <div>
                   <label
                     htmlFor="coverLetter"
@@ -425,6 +638,7 @@ const CareerApplicationPage = () => {
                   ></textarea>
                 </div>
 
+                {/* Referral Source */}
                 <div>
                   <label
                     htmlFor="referralSource"
@@ -448,6 +662,7 @@ const CareerApplicationPage = () => {
                   </select>
                 </div>
 
+                {/* Form Status Notification */}
                 {formStatus && (
                   <div
                     className={`p-4 rounded-lg ${
@@ -460,6 +675,7 @@ const CareerApplicationPage = () => {
                   </div>
                 )}
 
+                {/* Consent Checkbox */}
                 <div className="flex items-center pt-4">
                   <input
                     type="checkbox"
@@ -477,6 +693,7 @@ const CareerApplicationPage = () => {
                   </label>
                 </div>
 
+                {/* Submit Button */}
                 <div>
                   <button
                     type="submit"

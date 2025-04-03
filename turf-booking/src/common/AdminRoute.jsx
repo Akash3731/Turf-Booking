@@ -7,15 +7,6 @@ import Loader from "./Loader";
 const AdminRoute = ({ children }) => {
   const { user, isAuthenticated, loading } = useContext(AuthContext);
 
-  useEffect(() => {
-    console.log("AdminRoute - Auth State:", {
-      isAuthenticated,
-      userRole: user?.role,
-      isAdmin: user?.role === "admin",
-      loading,
-    });
-  }, [user, isAuthenticated, loading]);
-
   if (loading) {
     return <Loader />;
   }
