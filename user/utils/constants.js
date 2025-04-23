@@ -1,5 +1,5 @@
 // Base API URL - Replace with your actual API URL
-export const API_URL = "http://192.168.113.45:5000";
+export const API_URL = "https://turf-booking-9xq8.onrender.com";
 
 // Image base URL - Used for loading turf images
 export const IMAGE_BASE_URL = `${API_URL}`;
